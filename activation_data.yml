@@ -1,0 +1,31 @@
+name: Update Activation Data
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  update_keys:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Decrypt Existing Files
+        run: |
+          if [ -f "used_keys.enc" ]; then
+            openssl enc -d -in used_keys.enc -out used_keys.txt -pass pass:${{ secrets.GH_TOKEN }}
+          fi
+          if [ -f "hwid_list.enc" ]; then
+            openssl -d -in hwid_list.enc -out hwid_list.txt -pass pass:${{ secrets.GH_TOKEN }}
+          fi
+
+      - name: Commit & Push Updated Data
+        run: |
+          git config --global user.email "you@example.com"
+          git config --global user.name "YourUsername"
+          git add .
+          git commit -m "Updated activation data"
+          git push https://${{ secrets.GH_TOKEN }}@github.com/YourUsername/YourRepo.git
