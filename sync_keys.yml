@@ -1,0 +1,54 @@
+name: Sync Activation Keys
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  update_keys:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+      - name: Decrypt Local Key Files
+        run: |
+          if [ -f "used_keys.enc" ]; then
+            openssl enc -d -aes-256-cbc -in used_keys.txt -out used_keys.txt -pass pass:${{ secrets.GH_TOKEN }}
+          fi
+          if [ -f "hwid_list.enc" ]; then
+            openssl -d -in hwid_list.enc -out hwid_list.txt -pass pass:${{ secrets.GH_TOKEN }}
+          fi
+          if [ -f "blocklist.enc" ]; then
+            openssl -d -in blocklist.enc -out blocklist.txt -pass pass:${{ secrets.GH_TOKEN }}
+          fi
+
+      - name: Fetch Updated Activation Data
+        run: |
+          curl -s -o "used_keys.txt" "${{ github.event.repository.html_url }}/raw/main/used_keys.txt"
+          curl -s -o "hwid_list.txt" "${{ github.event.repository.html_url }}/hwid_list.txt"
+          curl -s -o "blocklist.txt" "${{ github.event.repository.html_url }}/blocklist.txt"
+
+      - name: Encrypt Files
+        run: |
+          openssl enc -aes-256-cbc -salt -in used_keys.txt -out used_keys.enc -pass pass:${{ secrets.GH_TOKEN }}
+          openssl enc -aes-256 -in hwid_list.txt -out hwid_list.enc -pass pass:${{ secrets.GH_TOKEN }}
+          git add used_keys.enc hwid_list.enc
+
+      - name: Commit & Push Changes
+        run: |
+          git add .
+          git commit -m "Sync updated activation data"
+          git push https://${{ secrets.GH_TOKEN }}@github.com/YourUsername/YourRepo.git main
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
